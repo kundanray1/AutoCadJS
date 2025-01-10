@@ -1,18 +1,116 @@
 import React, { useEffect, useState } from "react";
-import { Stage, Layer, Line, Circle, Group, Arc } from "react-konva";
+import { Stage, Layer, Line, Circle, Group, Arc, Rect } from "react-konva";
 import { DxfParser } from "dxf-parser";
-import * as THREE from 'three'
+import * as THREE from 'three';
+import { zip } from "three/examples/jsm/libs/fflate.module.js";
+
+
+const items = [
+  { name: "Hot Tub", type: "CIRCLE", radius: 50, fill: "lightblue" ,layer:'hotTub',
+    
+    
+    position:{
+    x:32.4,y:0,z:0
+  },
+  rotation:0,
+  xScale:1,
+  yScale:1,
+  zScale:1,
+
+
+},
+{
+  name: "Rectangular Pool",
+  type: "POLYLINE", // Use POLYLINE for DXF-style rectangles
+  vertices: [
+    { x: -50, y: -30 }, // Top-left
+    { x: 50, y: -30 },  // Top-right
+    { x: 50, y: 30 },   // Bottom-right
+    { x: -50, y: 30 },  // Bottom-left
+    { x: -50, y: -30 }, // Closing the rectangle
+  ],
+  layer: "New Rectangular Pool",
+  // fill: "blue",
+  position: {
+    x: 32.4,
+    y: 0,
+    z: 0,
+  },
+  shape: true, // Close the shape
+},
+{
+  name: "Curved Pool",
+  type: "POLYLINE",
+
+  vertices: [
+    { x: -60, y: -30, bulge: 1 }, // Start point with bulge for the curve
+    { x: 0, y: -60 }, // End of the first curve
+    { x: 60, y: -30, bulge: -1 }, // Start another curve
+    { x: 60, y: 30 }, // Straight segment
+    { x: 0, y: 60, bulge: -1 }, // Another curve
+    { x: -60, y: 30, bulge: 1 }, // Closing the curve
+  ],
+  layer: "New Curve Pool",
+  shape: true, // Close the shape
+  position: {
+    x: 32.4,
+    y: 0,
+    z: 0,
+  },
+  // fill: "lightblue",
+  // shape: true,
+},
+  // Add more items as needed
+];
+
+
+
 
 const App = () => {
   const [dxfData, setDxfData] = useState(null);
   const [selectedLayer, setSelectedLayer] = useState(null);
-  const [patternImage, setPatternImage] = useState(null);
+  const [textures, setTextures] = useState({});
+  const [availableTextures, setAvailableTextures] = useState({});
+  const [canvasItems, setCanvasItems] = useState([]);
+
+
+  const addItemToCanvas = (item, position) => {
+    setCanvasItems((prevItems) => [
+      ...prevItems,
+      {
+        ...item,
+        x: position.x,
+        y: position.y,
+        id: Date.now(), // unique id for each item
+      },
+    ]);
+  };
+
+  console.log(selectedLayer, 'selectedLayer')
+
+
 
   useEffect(() => {
-    const img = new window.Image();
-    img.src = "/Floor.jpg"; // Replace with your image path
-    img.onload = () => setPatternImage(img);
+    // Load available textures
+    const loadTextures = () => {
+      const texture1 = new window.Image();
+      texture1.src = "/Floor.jpg"; // Replace with texture paths
+      const texture2 = new window.Image();
+      texture2.src = "/Waterline.jpg";
+
+      const waterTexture = new window.Image();
+      waterTexture.src = "/transparentWater.png";
+
+      const deckTexture = new window.Image();
+      deckTexture.src = "/deck.png";
+      // const texture3 = new window.Image();
+      // texture3.src = "/texture3.jpg";
+
+      setAvailableTextures({ texture1, texture2, waterTexture });
+    };
+    loadTextures();
   }, []);
+
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -31,30 +129,186 @@ const App = () => {
     }
   };
 
+  const handleTextureChange = (layerName, textureKey) => {
+    setTextures((prev) => ({
+      ...prev,
+      [layerName]: availableTextures[textureKey],
+    }));
+  };
+
+
+
+
+  
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <div style={{ padding: "10px", backgroundColor: "#f4f4f4", textAlign: "center" }}>
-        <input type="file" accept=".dxf" onChange={handleFileUpload} />
+    <div style={{ display: "flex", flexDirection: 'row', height: "100%", }}>
+      <div style={{ display: 'flex', flex: 0.2, flexDirection: 'column', backgroundColor: "#f4f4f4" }}>
+        <div style={{ padding: "10px", backgroundColor: "#f4f4f4", textAlign: "left" }}>
+          <input type="file" accept=".dxf" onChange={handleFileUpload} />
+        </div>
+        <div style={{ padding: "10px", backgroundColor: "#f4f4f4" }}>
+          <h3>Add Items</h3>
+          {items.map((item, index) => (
+            <div
+              key={index}
+              draggable
+              // onDragEnd={}
+              onDragStart={(e) => {
+                console.log("dragging", item);
+                e.dataTransfer.setData("item", JSON.stringify(item));
+              }}
+
+
+              onDragEnd={(e)=>{
+                console.log('drag end',e)
+
+
+               const position={x:e.clientX-250,y:e.clientY}
+
+
+              setDxfData((prev) => ({ ...prev, entities: [...(prev?.entities ), item] }));
+               
+                // addItemToCanvas(item,position);
+
+              }}
+
+              style={{
+                margin: "10px 0",
+                padding: "10px",
+                border: "1px solid #ccc",
+                cursor: "grab",
+                backgroundColor: "#fff",
+              }}
+            >
+              {item.name}
+            </div>
+          ))}
+        </div>
       </div>
-      <div style={{ flex: 1, backgroundColor: "white" }}>
-        <Stage width={window.innerWidth} height={window.innerHeight}>
-          {dxfData && <DXFLayers patternImage={patternImage} dxfData={dxfData} selectedLayer={selectedLayer} setSelectedLayer={setSelectedLayer} />}
+
+
+      <div
+
+
+        style={{ display: 'flex', flex: 1, backgroundColor: "white" }}>
+        <Stage
+          width={window.innerWidth - 200}
+          height={window.innerHeight}
+          draggable
+          preventDefault={true}
+          onDrop={(e) => {
+            e.preventDefault()
+            console.log('drop')
+
+
+
+            // e.preventDefault();
+            const stage = e.target.getStage();
+            const pointerPosition = stage.getPointerPosition();
+            const itemJSON = e.dataTransfer.getData("item");
+            if (itemJSON) {
+              const item = JSON.parse(itemJSON);
+              // addItemToCanvas(item, pointerPosition);
+            }
+          }}
+
+
+        // onDrop={(e) => {
+        //   e.preventDefault();
+
+        //   console.log('drop', e)
+
+
+        //   // e.preventDefault();
+        //   const stage = e.target.getStage();
+        //   const pointerPosition = stage.getPointerPosition();
+        //   const itemJSON = e.dataTransfer.getData("item");
+        //   if (itemJSON) {
+        //     const item = JSON.parse(itemJSON);
+        //     addItemToCanvas(item, pointerPosition);
+        //   }
+        // }}
+        >
+          {dxfData && (
+            <DXFLayers
+              dxfData={dxfData}
+              textures={textures}
+              setSelectedLayer={setSelectedLayer}
+            />
+          )}
+          <Layer>
+            {/* {canvasItems.map((item) => {
+              if (item.type === "circle") {
+                return (
+                  <Circle
+                    key={item.id}
+                    x={item.x}
+                    y={item.y}
+                    radius={item.radius}
+                    fill={item.fill}
+                    draggable
+                  />
+                );
+              } else if (item.type === "rect") {
+                return (
+                  <Rect
+                    key={item.id}
+                    x={item.x}
+                    y={item.y}
+                    width={item.width}
+                    height={item.height}
+                    fill={item.fill}
+                    draggable
+                  />
+                );
+              }
+              return null;
+            })} */}
+          </Layer>
         </Stage>
-        {selectedLayer && (
-          <div style={{ position: "absolute", top: 10, left: 10, backgroundColor: "rgba(255, 255, 255, 0.9)", padding: "10px", border: "1px solid #ccc" }}>
-            <h4>Layer: {selectedLayer.name}</h4>
-            <p>Properties:</p>
-            <pre>{JSON.stringify(selectedLayer.properties, null, 2)}</pre>
-          </div>
-        )}
       </div>
+      <div style={{ position: "fixed", right: 0, display: 'flex', width: '15%', flexDirection: 'column', backgroundColor: "#f4f4f4" }}>
+
+        <div style={{ width: "100px", padding: "10px", backgroundColor: "#f4f4f4" }}>
+          <h3>Layers</h3>
+          {dxfData &&
+            Object.keys(
+              dxfData.entities.reduce((acc, entity) => {
+                const layer = entity.layer || "Default";
+                if (!acc[layer]) acc[layer] = [];
+                acc[layer].push(entity);
+                return acc;
+              }, {})
+            ).map((layerName) => (
+              <div key={layerName} style={{ marginBottom: "10px" }}>
+                <strong>{layerName}</strong>
+
+                <select
+                  value={textures[layerName] || ""}
+                  onChange={(e) => handleTextureChange(layerName, e.target.value)}
+                  style={{
+                    width: "100%",
+                    marginTop: "5px",
+                    outline: selectedLayer === layerName ? "2px solid blue" : "none",
+                  }}
+                >
+                  <option value="">No Texture</option>
+                  <option value="deckTexture">Deck Texture</option>
+                  <option value="texture1">Floor Texture</option>
+                  <option value="texture2">Water Line Texture</option>
+                  <option value="waterTexture">Water Texture</option>
+                </select>
+
+              </div>
+            ))}
+        </div>
+      </div>
+
     </div>
   );
 };
 
-
-
-const DXFLayers = ({ dxfData, selectedLayer, setSelectedLayer, patternImage }) => {
+const DXFLayers = ({ dxfData, textures, setSelectedLayer }) => {
   const calculateArcPoints = (start, end, bulge) => {
     const points = [];
     if (!bulge || bulge === 0) return points;
@@ -96,37 +350,52 @@ const DXFLayers = ({ dxfData, selectedLayer, setSelectedLayer, patternImage }) =
   };
 
   const renderLayer = (layerName, entities) => {
-
-
     return (
       <Group
         key={layerName}
         draggable
-        onClick={() => setSelectedLayer({ name: layerName, properties: { entityCount: entities.length } })}
+        onClick={() => setSelectedLayer(layerName)}
       >
         {entities.map((entity, index) => {
-          if (entity.type === "LINE") {
-            const points = [
-              entity.vertices[0].x,
-              -entity.vertices[0].y, // Flip Y-axis for canvas
-              entity.vertices[1].x,
-              -entity.vertices[1].y,
-            ];
-            return <Line key={index} points={points} stroke="black" strokeWidth={1} />;
-          }
-          if (entity.type === "CIRCLE") {
-            return (
-              <Circle
-                key={index}
-                x={entity.center.x}
-                y={-entity.center.y} // Flip Y-axis
-                radius={entity.radius}
-                stroke="black"
-                strokeWidth={1}
-              />
-            );
-          }
-          if (entity.type === "POLYLINE") {
+            if (entity.type === "CIRCLE") {
+              return (
+                <Circle
+                  key={`${entity.layer}-${Math.random()}`} // Unique key for each entity
+                  x={entity.x}
+                  y={entity.y}
+                  fillPatternImage={textures[layerName] || entity.layerTexture||null}
+
+                  radius={entity.radius}
+                  // fill={entity.fill || "transparent"}
+                  fillPatternOffset={{ x: 0, y: 0 }}
+                  fillPatternScale={{ x: 1, y: 1 }}
+                  stroke="black"
+
+                  strokeWidth={1}
+                  draggable
+                  onClick={() => setSelectedLayer(entity.layer)}
+                />
+              );
+            } else if (entity.type === "RECT") {
+              return (
+                <Rect
+                  key={`${entity.layer}-${Math.random()}`}
+                  x={entity.x - entity.width / 2} // Center the rect
+                  y={entity.y - entity.height / 2}
+                  width={entity.width}
+                  fillPatternImage={textures[layerName] || entity.layerTexture||null}
+
+                  height={entity.height}
+                  fill={entity.fill || "transparent"}
+                  fillPatternOffset={{ x: 0, y: 0 }}
+                  fillPatternScale={{ x: 1, y: 1 }}
+                  stroke="black"
+                  strokeWidth={1}
+                  draggable
+                  onClick={() => setSelectedLayer(entity.layer)}
+                />
+              );
+            } else if (entity.type === "POLYLINE") {
             const points = [];
             for (let i = 0; i < entity.vertices.length; i++) {
               const v1 = entity.vertices[i];
@@ -139,41 +408,18 @@ const DXFLayers = ({ dxfData, selectedLayer, setSelectedLayer, patternImage }) =
                 points.push(...arcPoints);
               }
             }
-            const flatPoints = points.flatMap((p) => [p.x, p.y]);
-            return <Line key={index} points={flatPoints} stroke="blue"
+            const flatPoints = points.flatMap((p) => [400 + p.x, 400 + p.y]);
 
-              strokeWidth={1}
-              fillPatternImage={patternImage}
-              fillPatternOffset={{ x: 0, y: 0 }}
-              fillPatternScale={{ x: 1, y: 1 }}
-
-              closed={entity.shape} />;
-          }
-          if (entity.type === "INSERT") {
-            const { x, y } = entity.position;
             return (
-              <Circle
+              <Line
                 key={index}
-                x={x}
-                y={-y} // Flip Y-axis
-                radius={5} // Placeholder radius for INSERT visualization
-                fill="green"
-              />
-            );
-          }
-          if (entity.type === "ARC") {
-            const { center, radius, startAngle, endAngle } = entity;
-            return (
-              <Arc
-                key={index}
-                x={center.x}
-                y={-center.y}
-                innerRadius={0}
-                outerRadius={radius}
-                angle={((endAngle - startAngle) * 180) / Math.PI}
-                rotation={(-startAngle * 180) / Math.PI}
-                stroke="purple"
-                strokeWidth={1}
+                points={flatPoints}
+                stroke="blue"
+                strokeWidth={2}
+                fillPatternImage={textures[layerName] || null}
+                fillPatternOffset={{ x: 0, y: 0 }}
+                fillPatternScale={{ x: 1, y: 1 }}
+                closed={entity.shape}
               />
             );
           }
