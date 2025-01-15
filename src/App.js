@@ -2,67 +2,47 @@ import React, { useEffect, useState } from "react";
 import { Stage, Layer, Line, Circle, Group, Arc, Rect } from "react-konva";
 import { DxfParser } from "dxf-parser";
 import * as THREE from 'three';
-import { zip } from "three/examples/jsm/libs/fflate.module.js";
+import {  Colors } from "dxf-writer"; // Import DxfWriter
+import DxfWriter from "dxf-writer";
 
 
 const items = [
-  { name: "Hot Tub", type: "CIRCLE", radius: 50, fill: "lightblue" ,layer:'hotTub',
-    
-    
-    position:{
-    x:32.4,y:0,z:0
+  { name: "Hot Tub", type: "CIRCLE", radius: 100, cost: 1000, layer: "hotTub", 
+
+    layerTexture:'waterTexture',
+
+
   },
-  rotation:0,
-  xScale:1,
-  yScale:1,
-  zScale:1,
-
-
-},
-{
-  name: "Rectangular Pool",
-  type: "POLYLINE", // Use POLYLINE for DXF-style rectangles
-  vertices: [
-    { x: -50, y: -30 }, // Top-left
-    { x: 50, y: -30 },  // Top-right
-    { x: 50, y: 30 },   // Bottom-right
-    { x: -50, y: 30 },  // Bottom-left
-    { x: -50, y: -30 }, // Closing the rectangle
-  ],
-  layer: "New Rectangular Pool",
-  // fill: "blue",
+  { name: "Rectangular Pool", type: "POLYLINE",   vertices: [
+    { x: -200, y: -100 }, // Top-left corner
+    { x: 200, y: -100 },  // Top-right corner
+    { x: 200, y: 100 },   // Bottom-right corner
+    { x: -200, y: 100 },  // Bottom-left corner
+    { x: -200, y: -100 }, // Closing the rectangle
+  ], 
+  cost: 1500,
   position: {
-    x: 32.4,
-    y: 0,
+    x: 100, // Optional X offset
+    y: 100, // Optional Y offset
     z: 0,
   },
-  shape: true, // Close the shape
+  shape:true,
+  layer: "Rectangular Pool" ,
+  layerTexture:'waterTexture'
 },
-{
-  name: "Curved Pool",
-  type: "POLYLINE",
-
-  vertices: [
-    { x: -60, y: -30, bulge: 1 }, // Start point with bulge for the curve
-    { x: 0, y: -60 }, // End of the first curve
-    { x: 60, y: -30, bulge: -1 }, // Start another curve
-    { x: 60, y: 30 }, // Straight segment
-    { x: 0, y: 60, bulge: -1 }, // Another curve
-    { x: -60, y: 30, bulge: 1 }, // Closing the curve
-  ],
-  layer: "New Curve Pool",
-  shape: true, // Close the shape
-  position: {
-    x: 32.4,
-    y: 0,
-    z: 0,
-  },
-  // fill: "lightblue",
-  // shape: true,
-},
-  // Add more items as needed
+  { name: "Curved Pool", type: "POLYLINE", vertices: [/*...*/], cost: 2000, layer: "New Curve Pool" },
 ];
 
+const texturesCost = {
+  deckTexture: 200,
+  walkwayTexture: 150,
+  copingTexture: 100,
+  texture1: 50,
+  texture2: 75,
+  waterTexture: 125,
+  grassTexture: 80,
+  roofTexture:1500,
+};
 
 
 
@@ -70,8 +50,104 @@ const App = () => {
   const [dxfData, setDxfData] = useState(null);
   const [selectedLayer, setSelectedLayer] = useState(null);
   const [textures, setTextures] = useState({});
-  const [availableTextures, setAvailableTextures] = useState({});
   const [canvasItems, setCanvasItems] = useState([]);
+
+  const [globalCost, setGlobalCost] = useState(0);
+  const [customPools, setCustomPools] = useState([]); // Store custom pools
+
+  const handlePoolUpdate = (index, newPoints) => {
+    setCustomPools((prevPools) =>
+      prevPools.map((pool, i) => (i === index ? { ...pool, points: newPoints } : pool))
+    );
+  };
+
+  const addCustomPool = () => {
+    const newPool = {
+      x: 200, // Default X position
+      y: 200, // Default Y position
+      points: [
+        { x: 0, y: 0 },
+        { x: 200, y: 0 },
+        { x: 200, y: 100 },
+        { x: 0, y: 100 },
+      ], // Initial rectangle shape
+      borderColor: 'blue',
+      borderWidth: 5,
+      id: Date.now(), // Unique identifier
+    };
+    setCustomPools((prevPools) => [...prevPools, newPool]);
+  };
+
+
+
+
+
+
+
+
+// Function to handle DXF Export
+const exportToDXF = () => {
+  const writer = new DxfWriter();
+  writer.setUnits("Inches"); // Optional: Set DXF units
+console.log(dxfData,  )
+  // Add existing DXF entities to the writer
+  if (dxfData && dxfData.entities) {
+    dxfData.entities.forEach((entity) => {
+
+      const layerName = entity.layer || "Default";
+      if (entity.type === "LINE") {
+        writer.addLayer(layerName, 'green', "CONTINUOUS").drawLine(entity.vertices[0].x, entity.vertices[0].y, entity.vertices[1].x, entity.vertices[1].y, { layer: layerName });
+      } else if (entity.type === "CIRCLE") {
+        writer.addLayer(layerName, 'green', "CONTINUOUS").drawCircle(entity?.position?.x||0, entity?.position?.y||0, entity.radius, { layer: layerName });
+      } else if (entity.type === "ARC") {
+        writer.addLayer(layerName, 'green', "CONTINUOUS").drawArc(
+          entity.center.x,
+          entity.center.y,
+          entity.radius,
+          entity.startAngle,
+          entity.endAngle,
+          { layer: layerName }
+        );
+      } else if (entity.type === "POLYLINE") {
+        const vertices = entity.vertices.map((v) => [v.x, v.y]);
+        writer.addLayer(layerName, 'green', "CONTINUOUS").drawPolyline(vertices, { layer: layerName, closed: entity.closed || false });
+      }
+      // Add support for other DXF entity types as needed
+    });
+  }
+
+  // Add new canvas items to the writer
+  canvasItems.forEach((item) => {
+    const layerName = item.layer || "Default";
+    writer.addLayer(layerName, Colors.Blue, "CONTINUOUS");
+
+    if (item.type === "CIRCLE") {
+      writer.addCircle(item.x, item.y, item.radius, { layer: layerName });
+    } else if (item.type === "RECT") {
+      writer.addRectangle(
+        item.x - item.width / 2,
+        item.y - item.height / 2,
+        item.x + item.width / 2,
+        item.y + item.height / 2,
+        { layer: layerName }
+      );
+    } else if (item.type === "POLYLINE") {
+      const vertices = item.vertices.map((v) => [v.x, v.y]);
+      writer.addPolyline(vertices, { layer: layerName, closed: item.shape || false });
+    }
+  });
+
+  // Export DXF as a string
+  const dxfString = writer.toDxfString();
+  const blob = new Blob([dxfString], { type: "application/dxf" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "merged_canvas.dxf";
+  link.click();
+};
+
+
+
 
 
   const addItemToCanvas = (item, position) => {
@@ -90,26 +166,7 @@ const App = () => {
 
 
 
-  useEffect(() => {
-    // Load available textures
-    const loadTextures = () => {
-      const texture1 = new window.Image();
-      texture1.src = "/Floor.jpg"; // Replace with texture paths
-      const texture2 = new window.Image();
-      texture2.src = "/Waterline.jpg";
 
-      const waterTexture = new window.Image();
-      waterTexture.src = "/transparentWater.png";
-
-      const deckTexture = new window.Image();
-      deckTexture.src = "/deck.png";
-      // const texture3 = new window.Image();
-      // texture3.src = "/texture3.jpg";
-
-      setAvailableTextures({ texture1, texture2, waterTexture });
-    };
-    loadTextures();
-  }, []);
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
@@ -130,12 +187,29 @@ const App = () => {
   };
 
   const handleTextureChange = (layerName, textureKey) => {
-    setTextures((prev) => ({
-      ...prev,
-      [layerName]: availableTextures[textureKey],
-    }));
-  };
+    let prevCost=globalCost
+    const prevTextureKey = textures[layerName] || null;
+    const prevTextureCost = texturesCost[prevTextureKey] || 0;
+    const newTextureCost = texturesCost[textureKey] || 0;
+    const updatedCost = prevCost - prevTextureCost + newTextureCost;
 
+console.log( prevCost,'-',prevTextureCost,'+', newTextureCost,'updated cost','previous texture key',prevTextureKey)
+    setTextures((prev) => {
+      console.log("Previous Texture:", prevTextureKey, "Cost:", prevTextureCost);
+      console.log("New Texture:", textureKey, "Cost:", newTextureCost);
+      return {
+        ...prev,
+        // [layerName]: availableTextures[textureKey],    
+        [layerName]: textureKey, // Store the key instead of the image
+
+        };
+    });
+
+
+    setGlobalCost(updatedCost);
+
+  };
+  
 
 
 
@@ -147,6 +221,15 @@ const App = () => {
           <input type="file" accept=".dxf" onChange={handleFileUpload} />
         </div>
         <div style={{ padding: "10px", backgroundColor: "#f4f4f4" }}>
+
+
+        <div >
+          <h3 >Total Cost:</h3>
+          <h1 style={{color:'green'}}>
+          ${globalCost}
+          </h1>
+        </div>
+
           <h3>Add Items</h3>
           {items.map((item, index) => (
             <div
@@ -167,7 +250,8 @@ const App = () => {
 
 
               setDxfData((prev) => ({ ...prev, entities: [...(prev?.entities ), item] }));
-               
+              setGlobalCost((prevCost) => prevCost + (item.cost || 0));
+
                 // addItemToCanvas(item,position);
 
               }}
@@ -180,12 +264,12 @@ const App = () => {
                 backgroundColor: "#fff",
               }}
             >
-              {item.name}
-            </div>
+              {item.name} (${item.cost})
+              </div>
           ))}
         </div>
       </div>
-
+     
 
       <div
 
@@ -193,7 +277,7 @@ const App = () => {
         style={{ display: 'flex', flex: 1, backgroundColor: "white" }}>
         <Stage
           width={window.innerWidth - 200}
-          height={window.innerHeight}
+          height={3000}
           draggable
           preventDefault={true}
           onDrop={(e) => {
@@ -269,7 +353,12 @@ const App = () => {
       </div>
       <div style={{ position: "fixed", right: 0, display: 'flex', width: '15%', flexDirection: 'column', backgroundColor: "#f4f4f4" }}>
 
-        <div style={{ width: "100px", padding: "10px", backgroundColor: "#f4f4f4" }}>
+        <div style={{ width: "200px", padding: "10px", alignItems:'center',backgroundColor: "#f4f4f4" }}>
+        <button onClick={()=>exportToDXF(dxfData.entities)} style={{ padding: "10px", margin: "10px" }}>
+            Export to DXF
+          </button>
+         
+         
           <h3>Layers</h3>
           {dxfData &&
             Object.keys(
@@ -288,15 +377,22 @@ const App = () => {
                   onChange={(e) => handleTextureChange(layerName, e.target.value)}
                   style={{
                     width: "100%",
-                    marginTop: "5px",
-                    outline: selectedLayer === layerName ? "2px solid blue" : "none",
+                    marginTop: "15px",
+                    backgroundColor: "white",
+                    padding: "15px",
+                    borderRadius: "5px",
+                    outline: selectedLayer === layerName ? "5px solid orange" : "none",
                   }}
                 >
-                  <option value="">No Texture</option>
-                  <option value="deckTexture">Deck Texture</option>
-                  <option value="texture1">Floor Texture</option>
-                  <option value="texture2">Water Line Texture</option>
-                  <option value="waterTexture">Water Texture</option>
+               <option value="">No Texture</option>
+                {Object.keys(texturesCost).map((textureKey) => (
+                  <option 
+                  
+                  
+                  key={textureKey} value={textureKey}>
+                    {textureKey} (${texturesCost[textureKey]})
+                  </option>
+                ))}
                 </select>
 
               </div>
@@ -312,42 +408,87 @@ const DXFLayers = ({ dxfData, textures, setSelectedLayer }) => {
   const calculateArcPoints = (start, end, bulge) => {
     const points = [];
     if (!bulge || bulge === 0) return points;
-
+  
+    // Calculate arc parameters
     const angle = 4 * Math.atan(bulge);
     const distance = Math.sqrt((end.x - start.x) ** 2 + (end.y - start.y) ** 2);
     const radius = distance / (2 * Math.sin(angle / 2));
-
+  
     const midX = (start.x + end.x) / 2;
     const midY = (start.y + end.y) / 2;
-    const perpendicularLength = Math.sqrt(radius ** 2 - (distance / 2) ** 2);
+    const perpendicularLength = Math.sqrt(Math.abs(radius ** 2 - (distance / 2) ** 2));
     const direction = bulge > 0 ? 1 : -1;
-
+  
+    // Calculate arc center
     const normalX = (-(end.y - start.y) / distance) * direction;
     const normalY = ((end.x - start.x) / distance) * direction;
-
     const centerX = midX + normalX * perpendicularLength;
     const centerY = midY + normalY * perpendicularLength;
-
+  
+    // Calculate start and end angles
     const startAngle = Math.atan2(start.y - centerY, start.x - centerX);
     let endAngle = Math.atan2(end.y - centerY, end.x - centerX);
-
-    if (bulge < 0 && endAngle > startAngle) endAngle -= 2 * Math.PI;
+  
     if (bulge > 0 && endAngle < startAngle) endAngle += 2 * Math.PI;
-
+    if (bulge < 0 && endAngle > startAngle) endAngle -= 2 * Math.PI;
+  
+    // Generate points along the arc
     const curve = new THREE.EllipseCurve(
       centerX,
       centerY,
-      radius,
-      radius,
+      Math.abs(radius),
+      Math.abs(radius),
       startAngle,
       endAngle,
       false,
       0
     );
-    const curvePoints = curve.getPoints(50);
-
+    const curvePoints = curve.getPoints(50); // Adjust for smoother curves
+  
     return curvePoints.map((p) => ({ x: p.x, y: p.y }));
   };
+  
+  
+  const [availableTextures, setAvailableTextures] = useState({});
+
+  useEffect(() => {
+    // Load available textures
+    const loadTextures = () => {
+      const texture1 = new window.Image();
+      texture1.src = "/Floor.jpg"; // Replace with texture paths
+
+      const texture2 = new window.Image();
+      texture2.src = "/Waterline.jpg";
+
+      const grassTexture = new window.Image();
+      grassTexture.src = "/grass.jpg";
+
+      const waterTexture = new window.Image();
+      waterTexture.src = "/transparentWater.png";
+
+      const walkwayTexture = new window.Image();
+      walkwayTexture.src = "/walkway.jpg";
+
+
+      const copingTexture = new window.Image();
+      copingTexture.src = "/coping.jpg";
+
+
+      const deckTexture = new window.Image();
+      deckTexture.src = "/deckTransparent.png";
+
+
+      const roofTexture = new window.Image();
+      roofTexture.src = "/roofTexture.jpg";
+      // const texture3 = new window.Image();
+      // texture3.src = "/texture3.jpg";
+
+      setAvailableTextures({ texture1, texture2, waterTexture,roofTexture, walkwayTexture,copingTexture,deckTexture,grassTexture });
+    };
+    loadTextures();
+  }, []);
+  
+  
 
   const renderLayer = (layerName, entities) => {
     return (
@@ -363,7 +504,7 @@ const DXFLayers = ({ dxfData, textures, setSelectedLayer }) => {
                   key={`${entity.layer}-${Math.random()}`} // Unique key for each entity
                   x={entity.x}
                   y={entity.y}
-                  fillPatternImage={textures[layerName] || entity.layerTexture||null}
+                  fillPatternImage={availableTextures[textures[layerName]]|| availableTextures[entity.layerTexture] ||null}
 
                   radius={entity.radius}
                   // fill={entity.fill || "transparent"}
@@ -383,7 +524,7 @@ const DXFLayers = ({ dxfData, textures, setSelectedLayer }) => {
                   x={entity.x - entity.width / 2} // Center the rect
                   y={entity.y - entity.height / 2}
                   width={entity.width}
-                  fillPatternImage={textures[layerName] || entity.layerTexture||null}
+                  fillPatternImage={availableTextures[textures[layerName]]||  availableTextures[entity.layerTexture] ||null}
 
                   height={entity.height}
                   fill={entity.fill || "transparent"}
@@ -396,33 +537,43 @@ const DXFLayers = ({ dxfData, textures, setSelectedLayer }) => {
                 />
               );
             } else if (entity.type === "POLYLINE") {
-            const points = [];
-            for (let i = 0; i < entity.vertices.length; i++) {
-              const v1 = entity.vertices[i];
-              const v2 = entity.vertices[(i + 1) % entity.vertices.length];
+              const points = [];
 
-              points.push({ x: v1.x, y: -v1.y });
-
-              if (v1.bulge && v1.bulge !== 0) {
-                const arcPoints = calculateArcPoints(v1, v2, v1.bulge);
-                points.push(...arcPoints);
+              for (let i = 0; i < entity.vertices.length; i++) {
+                const v1 = entity.vertices[i];
+                const v2 = entity.vertices[(i + 1) % entity.vertices.length]; // Wrap-around for closed shapes
+          
+                // Add the starting vertex
+                points.push({ x: v1.x, y: -v1.y });
+          
+                // If there's a bulge, calculate and add arc points
+                if (v1.bulge && v1.bulge !== 0) {
+                  const arcPoints = calculateArcPoints(v1, v2, v1.bulge);
+                  points.push(...arcPoints);
+                }
               }
+          
+              // Flatten the points for Konva rendering
+              const flatPoints = points.flatMap((p) => [p.x, p.y]);
+          
+              // Render the pool as a closed shape
+              return (
+                <Line
+                  key={entity.handle}
+                  points={flatPoints}
+                  stroke="blue"
+                  // tension={0.1}
+                  strokeWidth={2}
+                  closed={entity.shape || false} // Close the shape if specified
+                  fillPatternImage={availableTextures[textures[layerName]]||  availableTextures[entity.layerTexture] ||null}
+                  fillPatternOffset={{ x: 0, y: 0 }}
+                  fillPatternScale={{ x: 1, y: 1 }}
+                  draggable
+                  
+                />
+              );
+            
             }
-            const flatPoints = points.flatMap((p) => [400 + p.x, 400 + p.y]);
-
-            return (
-              <Line
-                key={index}
-                points={flatPoints}
-                stroke="blue"
-                strokeWidth={2}
-                fillPatternImage={textures[layerName] || null}
-                fillPatternOffset={{ x: 0, y: 0 }}
-                fillPatternScale={{ x: 1, y: 1 }}
-                closed={entity.shape}
-              />
-            );
-          }
           return null;
         })}
       </Group>

@@ -7,6 +7,7 @@
     "@react-three/fiber": "^8.17.12",
     "cra-template": "1.2.0",
     "dxf-parser": "^1.1.2",
+    "dxf-writer": "^1.18.4",
     "konva": "^9.3.18",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
