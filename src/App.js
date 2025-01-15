@@ -4,6 +4,7 @@ import { DxfParser } from "dxf-parser";
 import * as THREE from 'three';
 import {  Colors } from "dxf-writer"; // Import DxfWriter
 import DxfWriter from "dxf-writer";
+import FreeformPool from "./FreeFormPool";
 
 
 const items = [
@@ -53,30 +54,25 @@ const App = () => {
   const [canvasItems, setCanvasItems] = useState([]);
 
   const [globalCost, setGlobalCost] = useState(0);
-  const [customPools, setCustomPools] = useState([]); // Store custom pools
 
-  const handlePoolUpdate = (index, newPoints) => {
-    setCustomPools((prevPools) =>
-      prevPools.map((pool, i) => (i === index ? { ...pool, points: newPoints } : pool))
-    );
-  };
 
-  const addCustomPool = () => {
-    const newPool = {
-      x: 200, // Default X position
-      y: 200, // Default Y position
-      points: [
-        { x: 0, y: 0 },
-        { x: 200, y: 0 },
-        { x: 200, y: 100 },
-        { x: 0, y: 100 },
-      ], // Initial rectangle shape
-      borderColor: 'blue',
-      borderWidth: 5,
-      id: Date.now(), // Unique identifier
-    };
-    setCustomPools((prevPools) => [...prevPools, newPool]);
-  };
+  // Add a new FreeformPool
+  // const addCustomPool = () => {
+  //   const newPool = {
+  //     x: 200,
+  //     y: 200,
+  //     points: [
+  //       { x: 0, y: 0 },
+  //       { x: 200, y: 0 },
+  //       { x: 200, y: 100 },
+  //       { x: 0, y: 100 },
+  //     ],
+  //     borderColor: "blue",
+  //     borderWidth: 5,
+  //     id: Date.now(),
+  //   };
+  //   setCustomPools((prevPools) => [...prevPools, newPool]);
+  // };
 
 
 
@@ -248,7 +244,6 @@ console.log( prevCost,'-',prevTextureCost,'+', newTextureCost,'updated cost','pr
 
                const position={x:e.clientX-250,y:e.clientY}
 
-
               setDxfData((prev) => ({ ...prev, entities: [...(prev?.entities ), item] }));
               setGlobalCost((prevCost) => prevCost + (item.cost || 0));
 
@@ -320,6 +315,11 @@ console.log( prevCost,'-',prevTextureCost,'+', newTextureCost,'updated cost','pr
               setSelectedLayer={setSelectedLayer}
             />
           )}
+
+
+
+
+
           <Layer>
             {/* {canvasItems.map((item) => {
               if (item.type === "circle") {
@@ -349,6 +349,10 @@ console.log( prevCost,'-',prevTextureCost,'+', newTextureCost,'updated cost','pr
               return null;
             })} */}
           </Layer>
+     
+     
+     
+     
         </Stage>
       </div>
       <div style={{ position: "fixed", right: 0, display: 'flex', width: '15%', flexDirection: 'column', backgroundColor: "#f4f4f4" }}>
@@ -489,8 +493,22 @@ const DXFLayers = ({ dxfData, textures, setSelectedLayer }) => {
   }, []);
   
   
+  const [customPools, setCustomPools] = useState([]); // Store custom pools
+
+  // Handle updates to FreeformPool points
+  const handlePoolUpdate = (id, newPoints) => {
+    setCustomPools((prevPools) =>
+      prevPools.map((pool) => (pool.id === id ? { ...pool, points: newPoints } : pool))
+    );
+  };
+
+
 
   const renderLayer = (layerName, entities) => {
+
+
+
+    
     return (
       <Group
         key={layerName}
@@ -554,22 +572,39 @@ const DXFLayers = ({ dxfData, textures, setSelectedLayer }) => {
               }
           
               // Flatten the points for Konva rendering
-              const flatPoints = points.flatMap((p) => [p.x, p.y]);
-          
+              const flatPoints = points.flatMap((p) => [p?.x, p?.y]);
+          console.log(flatPoints, 'flatPoints',entity.vertices)
               // Render the pool as a closed shape
               return (
-                <Line
-                  key={entity.handle}
-                  points={flatPoints}
-                  stroke="blue"
+                // <Line
+                //   key={entity.handle}
+                //   points={flatPoints}
+                //   stroke="blue"
+                //   // tension={0.1}
+                //   strokeWidth={2}
+                //   closed={entity.shape || false} // Close the shape if specified
+                //   fillPatternImage={availableTextures[textures[layerName]]||  availableTextures[entity.layerTexture] ||null}
+                //   fillPatternOffset={{ x: 0, y: 0 }}
+                //   fillPatternScale={{ x: 1, y: 1 }}
+                //   draggable
+                  
+                // />
+
+                <FreeformPool
+                key={entity.id}
+                // x={entity?.x||0}
+                // y={entity?.y||0}
+                stroke="blue"
+                points={entity.vertices}
                   // tension={0.1}
-                  strokeWidth={2}
+                  // strokeWidth={1}
                   closed={entity.shape || false} // Close the shape if specified
                   fillPatternImage={availableTextures[textures[layerName]]||  availableTextures[entity.layerTexture] ||null}
                   fillPatternOffset={{ x: 0, y: 0 }}
                   fillPatternScale={{ x: 1, y: 1 }}
                   draggable
-                  
+                
+                onShapeUpdate={(newPoints) => handlePoolUpdate(entity.id, newPoints)}
                 />
               );
             

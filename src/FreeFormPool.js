@@ -11,6 +11,11 @@ const FreeformPool = ({
   onClick,
   onDragEnd,
   onShapeUpdate,
+  strokeWidth,
+  closed, // Close the shape if specified
+  fillPatternImage,
+  fillPatternOffset,
+  fillPatternScale,
 }) => {
   const [localPoints, setLocalPoints] = useState(points);
 
@@ -88,15 +93,21 @@ const FreeformPool = ({
       y={y}
       draggable={draggable}
       onDragEnd={(e) => onDragEnd?.(e.target.x(), e.target.y())}
-      onClick={onClick}
+    //   onClick={onClick}
     >
       {/* Pool Border */}
       <Line
-        points={localPoints.flatMap((p) => [p.x, p.y])}
-        stroke={borderColor}
-        strokeWidth={borderWidth}
-        lineJoin="round"
-        closed
+ points={localPoints.flatMap((p) => [p.x, p.y])}   
+      stroke={'blue'}
+        
+        strokeWidth={2}
+        closed={closed} // Close the shape if specified
+        fillPatternImage={fillPatternImage }
+        fillPatternOffset={{ x: 0, y: 0 }}
+        fillPatternScale={{ x: 1, y: 1 }}
+        draggable
+
+        
         onDblClick={(e) => {
           const stage = e.target.getStage();
           const mousePos = stage?.getPointerPosition();
