@@ -4,6 +4,7 @@ import { Group, Line, Circle, Text } from 'react-konva';
 const FreeformPool = ({
   x,
   y,
+  key,
   points,
   borderColor = 'red',
   borderWidth = 5,
@@ -19,12 +20,29 @@ const FreeformPool = ({
 }) => {
   const [localPoints, setLocalPoints] = useState(points);
 
+
+const handleDragEndLocal=(index, x, y,z)=>{
+  const updatedPoints = [...localPoints];
+console.log(z,'pool update')
+  const newDepth = prompt("Enter depth for this pool (in meters):", z || 0);
+
+
+  updatedPoints[index] = {...updatedPoints[index] , x, y ,z:-Number(newDepth||z)};
+  setLocalPoints(updatedPoints);
+  if (onShapeUpdate) {
+
+    onShapeUpdate(updatedPoints);
+  }
+}
+
+
   // Update an individual anchor point
   const handleAnchorDrag = (index, x, y) => {
     const updatedPoints = [...localPoints];
-    updatedPoints[index] = { x, y };
+    updatedPoints[index] = {...updatedPoints[index] , x, y };
     setLocalPoints(updatedPoints);
     if (onShapeUpdate) {
+
       onShapeUpdate(updatedPoints);
     }
   };
@@ -89,6 +107,7 @@ const FreeformPool = ({
 
   return (
     <Group
+    key={key}
       x={x}
       y={y}
       draggable={draggable}
@@ -123,16 +142,17 @@ const FreeformPool = ({
         const distance = calculateDistance(point, nextPoint).toFixed(2);
         const midpoint = {
           x: (point.x + nextPoint.x) / 2,
-          y: (point.y + nextPoint.y) / 2,
+          y:  (point.y + nextPoint.y) / 2,
         };
 
         return (
           <Text
             key={`distance-${index}`}
             x={midpoint.x - 20}
-            y={midpoint.y - 10}
+            y={(midpoint.y - 10)}
             text={`${distance}`}
-            fontSize={12}
+            fontSize={10}
+            // fontVariant='bold'
             fill="black"
           />
         );
@@ -140,6 +160,7 @@ const FreeformPool = ({
 
       {/* Anchor Points */}
       {localPoints.map((point, index) => (
+        <>
         <Circle
           key={index}
           x={point.x}
@@ -149,8 +170,19 @@ const FreeformPool = ({
           stroke="black"
           strokeWidth={1}
           draggable
+          onDragEnd={(e)=>handleDragEndLocal(index, e.target.x(), e.target.y(),point?.z)}
           onDragMove={(e) => handleAnchorDrag(index, e.target.x(), e.target.y())}
         />
+         {point?.z?<Text
+          key={index}
+          x={point.x + 10}
+            y={point.y}
+            text={`Depth:${-1*point?.z} meter`}
+            fontSize={14}
+            fontVariant='bold'
+            fill="black"
+          />:null}
+        </>
       ))}
     </Group>
   );

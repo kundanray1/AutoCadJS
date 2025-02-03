@@ -1,32 +1,35 @@
 import React, { useEffect, useState } from "react";
-import { Stage, Layer, Line, Circle, Group, Arc, Rect } from "react-konva";
+import { Stage, Layer, Line, Circle, Group, Arc,Text, Rect } from "react-konva";
 import { DxfParser } from "dxf-parser";
 import * as THREE from 'three';
 import {  Colors } from "dxf-writer"; // Import DxfWriter
 import DxfWriter from "dxf-writer";
 import FreeformPool from "./FreeFormPool";
 
-
 const items = [
   { name: "Hot Tub", type: "CIRCLE", radius: 100, cost: 1000, layer: "hotTub", 
 
     layerTexture:'waterTexture',
-
+    position: {
+      x: 100, // Optional X offset
+      y: 100, // Optional Y offset
+      z: 0,
+    },
 
   },
   { name: "Rectangular Pool", type: "POLYLINE",   vertices: [
-    { x: -200, y: -100 }, // Top-left corner
+    { x: -300, y: -100 }, // Top-left corner
     { x: 200, y: -100 },  // Top-right corner
     { x: 200, y: 100 },   // Bottom-right corner
     { x: -200, y: 100 },  // Bottom-left corner
     { x: -200, y: -100 }, // Closing the rectangle
   ], 
   cost: 1500,
-  position: {
-    x: 100, // Optional X offset
-    y: 100, // Optional Y offset
-    z: 0,
-  },
+  // position: {
+  //   x: 100, // Optional X offset
+  //   y: 100, // Optional Y offset
+  //   z: 0,
+  // },
   shape:true,
   layer: "Rectangular Pool" ,
   layerTexture:'waterTexture'
@@ -54,8 +57,29 @@ const App = () => {
   const [canvasItems, setCanvasItems] = useState([]);
 
   const [globalCost, setGlobalCost] = useState(0);
+  const [poolDepths, setPoolDepths] = useState({});
+
+  const updateEntityPosition = (entityId, newPosition) => {
+
+    console.log(dxfData,entityId, newPosition,'ondrag end update entitiy position')
+    setDxfData((prev) => ({
+      ...prev,
+      entities: prev.entities.map((entity) =>
+        entity.id === entityId ? { ...entity, position: newPosition } : entity
+      ),
+    }));
+  };
 
 
+  const handlePoolClick = (poolId) => {
+    const newDepth = prompt("Enter depth for this pool (in meters):", poolDepths[poolId] || 0);
+    if (newDepth !== null) {
+      setPoolDepths((prev) => ({
+        ...prev,
+        [poolId]: parseFloat(newDepth),
+      }));
+    }
+  };
   // Add a new FreeformPool
   // const addCustomPool = () => {
   //   const newPool = {
@@ -105,8 +129,8 @@ console.log(dxfData,  )
           { layer: layerName }
         );
       } else if (entity.type === "POLYLINE") {
-        const vertices = entity.vertices.map((v) => [v.x, v.y]);
-        writer.addLayer(layerName, 'green', "CONTINUOUS").drawPolyline(vertices, { layer: layerName, closed: entity.closed || false });
+        const vertices = entity.vertices.map((v) => [v?.x, v?.y,v?.z]);
+        writer.addLayer(layerName, 'green', "CONTINUOUS").drawPolyline3d(vertices, { layer: layerName, closed: entity.closed || false });
       }
       // Add support for other DXF entity types as needed
     });
@@ -171,9 +195,14 @@ console.log(dxfData,  )
       reader.onload = (e) => {
         const parser = new DxfParser();
         try {
-          const data = parser.parseSync(e.target.result);
-          console.log(data, "DXF data");
-          setDxfData(data);
+          // const data = parser.parseSync(e.target.result);
+          
+          const parsedData = parser.parseSync(e.target.result);
+          parsedData.entities = parsedData.entities.map((entity, index) => ({
+            ...entity,
+            id: entity.handle || `entity-${index}`, // Use `handle` if available, otherwise generate an ID
+          }));
+          setDxfData(parsedData);
         } catch (error) {
           console.error("Error parsing DXF file:", error);
         }
@@ -207,9 +236,33 @@ console.log( prevCost,'-',prevTextureCost,'+', newTextureCost,'updated cost','pr
   };
   
 
-
-
   
+  const handlePoolUpdate = (id, newPoints) => {
+
+console.log(id,newPoints,'pool update')
+
+    setDxfData((prev) => ({
+      ...prev,
+      entities: prev.entities.map((entity) =>
+        entity.id === id ? { ...entity, vertices: newPoints } : entity
+      ),
+    }));
+  };
+
+    
+
+    const handleVerticesUpdate = (id, newPoints) => {
+
+console.log(id,newPoints,'pool update')
+
+    setDxfData((prev) => ({
+      ...prev,
+      entities: prev.entities.map((entity) =>
+        entity.id === id ? { ...entity, vertices: newPoints } : entity
+      ),
+    }));
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: 'row', height: "100%", }}>
       <div style={{ display: 'flex', flex: 0.2, flexDirection: 'column', backgroundColor: "#f4f4f4" }}>
@@ -239,12 +292,14 @@ console.log( prevCost,'-',prevTextureCost,'+', newTextureCost,'updated cost','pr
 
 
               onDragEnd={(e)=>{
-                console.log('drag end',e)
+                const now = new Date()
 
+const itemWithId = {...item,id:item.type+now.toISOString()}
+console.log('ondrag end update entitiy position',itemWithId)
 
                const position={x:e.clientX-250,y:e.clientY}
 
-              setDxfData((prev) => ({ ...prev, entities: [...(prev?.entities ), item] }));
+              setDxfData((prev) => ({ ...prev, entities: [...(prev?.entities ), itemWithId] }));
               setGlobalCost((prevCost) => prevCost + (item.cost || 0));
 
                 // addItemToCanvas(item,position);
@@ -311,8 +366,13 @@ console.log( prevCost,'-',prevTextureCost,'+', newTextureCost,'updated cost','pr
           {dxfData && (
             <DXFLayers
               dxfData={dxfData}
+              updateEntityPosition={updateEntityPosition}
+              handlePoolUpdate={handlePoolUpdate}
               textures={textures}
+              poolDepths={poolDepths}
+              handleVerticesUpdate={handleVerticesUpdate}
               setSelectedLayer={setSelectedLayer}
+              handlePoolClick={handlePoolClick}
             />
           )}
 
@@ -408,7 +468,7 @@ console.log( prevCost,'-',prevTextureCost,'+', newTextureCost,'updated cost','pr
   );
 };
 
-const DXFLayers = ({ dxfData, textures, setSelectedLayer }) => {
+const DXFLayers = ({ dxfData, handleDragEnd,textures, poolDepths,handlePoolClick,setSelectedLayer,updateEntityPosition,handlePoolUpdate,handleVerticesUpdate }) => {
   const calculateArcPoints = (start, end, bulge) => {
     const points = [];
     if (!bulge || bulge === 0) return points;
@@ -421,7 +481,7 @@ const DXFLayers = ({ dxfData, textures, setSelectedLayer }) => {
     const midX = (start.x + end.x) / 2;
     const midY = (start.y + end.y) / 2;
     const perpendicularLength = Math.sqrt(Math.abs(radius ** 2 - (distance / 2) ** 2));
-    const direction = bulge > 0 ? 1 : -1;
+    const direction = bulge > 0 ? -1 : -1;
   
     // Calculate arc center
     const normalX = (-(end.y - start.y) / distance) * direction;
@@ -496,11 +556,7 @@ const DXFLayers = ({ dxfData, textures, setSelectedLayer }) => {
   const [customPools, setCustomPools] = useState([]); // Store custom pools
 
   // Handle updates to FreeformPool points
-  const handlePoolUpdate = (id, newPoints) => {
-    setCustomPools((prevPools) =>
-      prevPools.map((pool) => (pool.id === id ? { ...pool, points: newPoints } : pool))
-    );
-  };
+
 
 
 
@@ -517,11 +573,14 @@ const DXFLayers = ({ dxfData, textures, setSelectedLayer }) => {
       >
         {entities.map((entity, index) => {
             if (entity.type === "CIRCLE") {
+              console.log(entity,'circle insertion')
               return (
+                <>            
                 <Circle
+              
                   key={`${entity.layer}-${Math.random()}`} // Unique key for each entity
-                  x={entity.x}
-                  y={entity.y}
+                  x={entity.position.x}
+                  y={entity.position.y}
                   fillPatternImage={availableTextures[textures[layerName]]|| availableTextures[entity.layerTexture] ||null}
 
                   radius={entity.radius}
@@ -532,27 +591,82 @@ const DXFLayers = ({ dxfData, textures, setSelectedLayer }) => {
 
                   strokeWidth={1}
                   draggable
-                  onClick={() => setSelectedLayer(entity.layer)}
+
+
+                  onDragEnd={(e) => {
+                    const newPosition = {
+                      x: e.target.x(),
+                      y: e.target.y(),
+                    };
+                    // Call the updateEntityPosition callback
+                    updateEntityPosition(entity.id, newPosition);
+                  }}
+
+
+                  
+                  onClick={() =>{ 
+                    setSelectedLayer(entity.layer)
+                 handlePoolClick(entity.id) // Assign depth on click
+
+                  }}
                 />
+                    <Text
+                x={entity.position.x-0}
+                y={entity.position.y}
+                text={`Depth: ${poolDepths[entity.id] || 0}m`}
+                   fontSize={14}
+            fontVariant='bold'
+                fill="black"
+              /></>
               );
             } else if (entity.type === "RECT") {
               return (
+                <>
                 <Rect
                   key={`${entity.layer}-${Math.random()}`}
-                  x={entity.x - entity.width / 2} // Center the rect
-                  y={entity.y - entity.height / 2}
-                  width={entity.width}
+                  x={entity.vertices[0].x + (entity.vertices[2].x - entity.vertices[0].x) / 2} // Center X
+                  y={entity.vertices[0].y + (entity.vertices[2].y - entity.vertices[0].y) / 2} // Center Y
+                  width={Math.abs(entity.vertices[2].x - entity.vertices[0].x)} // Width
+                  height={Math.abs(entity.vertices[2].y - entity.vertices[0].y)} // Height
+             
                   fillPatternImage={availableTextures[textures[layerName]]||  availableTextures[entity.layerTexture] ||null}
-
-                  height={entity.height}
+                  onDragEnd={(e) => {
+                    const displacement = {
+                      x: e.target.x() - (entity.vertices[0].x + (entity.vertices[2].x - entity.vertices[0].x) / 2),
+                      y: e.target.y() - (entity.vertices[0].y + (entity.vertices[2].y - entity.vertices[0].y) / 2),
+                    };
+                
+                    // Update vertices based on displacement
+                    const updatedVertices = entity.vertices.map((vertex) => ({
+                      x: vertex.x + displacement.x,
+                      y: vertex.y + displacement.y,
+                    }));
+                    // Call the updateEntityPosition callback
+                    handleVerticesUpdate(entity.id, updatedVertices);
+                  }}
+                  // height={entity.height}
                   fill={entity.fill || "transparent"}
                   fillPatternOffset={{ x: 0, y: 0 }}
                   fillPatternScale={{ x: 1, y: 1 }}
                   stroke="black"
                   strokeWidth={1}
                   draggable
-                  onClick={() => setSelectedLayer(entity.layer)}
+                  onClick={() =>{
+                     setSelectedLayer(entity.layer)
+handlePoolClick(entity.id)} // Assign depth on click
+
+
+                  }
                 />
+                <Text
+  x={entity.vertices[0].x + (entity.vertices[2].x - entity.vertices[0].x) / 2}
+  y={entity.vertices[0].y - 20}
+  text={`Depth: ${poolDepths[entity.id] || 0}m`}
+       fontSize={14}
+            fontVariant='bold'
+  fill="black"
+/>
+                </>
               );
             } else if (entity.type === "POLYLINE") {
               const points = [];
@@ -562,11 +676,11 @@ const DXFLayers = ({ dxfData, textures, setSelectedLayer }) => {
                 const v2 = entity.vertices[(i + 1) % entity.vertices.length]; // Wrap-around for closed shapes
           
                 // Add the starting vertex
-                points.push({ x: v1.x, y: -v1.y });
+                points.push({ x: v1.x, y: v1.y });
           
                 // If there's a bulge, calculate and add arc points
                 if (v1.bulge && v1.bulge !== 0) {
-                  const arcPoints = calculateArcPoints(v1, v2, v1.bulge);
+                  const arcPoints = calculateArcPoints(v1, -v2, v1.bulge);
                   points.push(...arcPoints);
                 }
               }
@@ -595,6 +709,7 @@ const DXFLayers = ({ dxfData, textures, setSelectedLayer }) => {
                 // x={entity?.x||0}
                 // y={entity?.y||0}
                 stroke="blue"
+
                 points={entity.vertices}
                   // tension={0.1}
                   // strokeWidth={1}
@@ -603,12 +718,13 @@ const DXFLayers = ({ dxfData, textures, setSelectedLayer }) => {
                   fillPatternOffset={{ x: 0, y: 0 }}
                   fillPatternScale={{ x: 1, y: 1 }}
                   draggable
-                
+                  handleDragEnd={handleDragEnd}
                 onShapeUpdate={(newPoints) => handlePoolUpdate(entity.id, newPoints)}
                 />
               );
             
             }
+          
           return null;
         })}
       </Group>
