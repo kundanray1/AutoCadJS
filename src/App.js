@@ -6,6 +6,11 @@ import {  Colors } from "dxf-writer"; // Import DxfWriter
 import DxfWriter from "dxf-writer";
 import FreeformPool from "./FreeFormPool";
 
+
+const invertedY = (y) => -y; // Invert Y function
+
+
+
 const items = [
   { name: "Hot Tub", type: "CIRCLE", radius: 100, cost: 1000, layer: "hotTub", 
 
@@ -25,11 +30,7 @@ const items = [
     { x: -200, y: -100 }, // Closing the rectangle
   ], 
   cost: 1500,
-  // position: {
-  //   x: 100, // Optional X offset
-  //   y: 100, // Optional Y offset
-  //   z: 0,
-  // },
+ 
   shape:true,
   layer: "Rectangular Pool" ,
   layerTexture:'waterTexture'
@@ -80,24 +81,6 @@ const App = () => {
       }));
     }
   };
-  // Add a new FreeformPool
-  // const addCustomPool = () => {
-  //   const newPool = {
-  //     x: 200,
-  //     y: 200,
-  //     points: [
-  //       { x: 0, y: 0 },
-  //       { x: 200, y: 0 },
-  //       { x: 200, y: 100 },
-  //       { x: 0, y: 100 },
-  //     ],
-  //     borderColor: "blue",
-  //     borderWidth: 5,
-  //     id: Date.now(),
-  //   };
-  //   setCustomPools((prevPools) => [...prevPools, newPool]);
-  // };
-
 
 
 
@@ -110,7 +93,6 @@ const exportToDXF = () => {
   const writer = new DxfWriter();
   writer.setUnits("Inches"); // Optional: Set DXF units
 console.log(dxfData,  )
-  // Add existing DXF entities to the writer
   if (dxfData && dxfData.entities) {
     dxfData.entities.forEach((entity) => {
 
@@ -170,19 +152,8 @@ console.log(dxfData,  )
 
 
 
-  const addItemToCanvas = (item, position) => {
-    setCanvasItems((prevItems) => [
-      ...prevItems,
-      {
-        ...item,
-        x: position.x,
-        y: position.y,
-        id: Date.now(), // unique id for each item
-      },
-    ]);
-  };
 
-  console.log(selectedLayer, 'selectedLayer')
+
 
 
 
@@ -202,6 +173,8 @@ console.log(dxfData,  )
             ...entity,
             id: entity.handle || `entity-${index}`, // Use `handle` if available, otherwise generate an ID
           }));
+
+          console.log(parsedData,'parsed data')
           setDxfData(parsedData);
         } catch (error) {
           console.error("Error parsing DXF file:", error);
@@ -326,6 +299,7 @@ console.log('ondrag end update entitiy position',itemWithId)
 
         style={{ display: 'flex', flex: 1, backgroundColor: "white" }}>
         <Stage
+        scaleY={-1}
           width={window.innerWidth - 200}
           height={3000}
           draggable
@@ -347,21 +321,7 @@ console.log('ondrag end update entitiy position',itemWithId)
           }}
 
 
-        // onDrop={(e) => {
-        //   e.preventDefault();
-
-        //   console.log('drop', e)
-
-
-        //   // e.preventDefault();
-        //   const stage = e.target.getStage();
-        //   const pointerPosition = stage.getPointerPosition();
-        //   const itemJSON = e.dataTransfer.getData("item");
-        //   if (itemJSON) {
-        //     const item = JSON.parse(itemJSON);
-        //     addItemToCanvas(item, pointerPosition);
-        //   }
-        // }}
+  
         >
           {dxfData && (
             <DXFLayers
@@ -381,33 +341,7 @@ console.log('ondrag end update entitiy position',itemWithId)
 
 
           <Layer>
-            {/* {canvasItems.map((item) => {
-              if (item.type === "circle") {
-                return (
-                  <Circle
-                    key={item.id}
-                    x={item.x}
-                    y={item.y}
-                    radius={item.radius}
-                    fill={item.fill}
-                    draggable
-                  />
-                );
-              } else if (item.type === "rect") {
-                return (
-                  <Rect
-                    key={item.id}
-                    x={item.x}
-                    y={item.y}
-                    width={item.width}
-                    height={item.height}
-                    fill={item.fill}
-                    draggable
-                  />
-                );
-              }
-              return null;
-            })} */}
+     
           </Layer>
      
      
@@ -469,21 +403,22 @@ console.log('ondrag end update entitiy position',itemWithId)
 };
 
 const DXFLayers = ({ dxfData, handleDragEnd,textures, poolDepths,handlePoolClick,setSelectedLayer,updateEntityPosition,handlePoolUpdate,handleVerticesUpdate }) => {
+
   const calculateArcPoints = (start, end, bulge) => {
     const points = [];
     if (!bulge || bulge === 0) return points;
   
-    // Calculate arc parameters
-    const angle = 4 * Math.atan(bulge);
+    // Calculate the arc parameters
+    const angle = 4 * Math.atan(Math.abs(bulge));
     const distance = Math.sqrt((end.x - start.x) ** 2 + (end.y - start.y) ** 2);
     const radius = distance / (2 * Math.sin(angle / 2));
   
     const midX = (start.x + end.x) / 2;
     const midY = (start.y + end.y) / 2;
     const perpendicularLength = Math.sqrt(Math.abs(radius ** 2 - (distance / 2) ** 2));
-    const direction = bulge > 0 ? -1 : -1;
+    const direction = bulge > 0 ? 1 : -1;
   
-    // Calculate arc center
+    // Calculate the arc center
     const normalX = (-(end.y - start.y) / distance) * direction;
     const normalY = ((end.x - start.x) / distance) * direction;
     const centerX = midX + normalX * perpendicularLength;
@@ -511,8 +446,6 @@ const DXFLayers = ({ dxfData, handleDragEnd,textures, poolDepths,handlePoolClick
   
     return curvePoints.map((p) => ({ x: p.x, y: p.y }));
   };
-  
-  
   const [availableTextures, setAvailableTextures] = useState({});
 
   useEffect(() => {
@@ -569,6 +502,7 @@ const DXFLayers = ({ dxfData, handleDragEnd,textures, poolDepths,handlePoolClick
       <Group
         key={layerName}
         draggable
+        preventDefault
         onClick={() => setSelectedLayer(layerName)}
       >
         {entities.map((entity, index) => {
@@ -674,20 +608,18 @@ handlePoolClick(entity.id)} // Assign depth on click
               for (let i = 0; i < entity.vertices.length; i++) {
                 const v1 = entity.vertices[i];
                 const v2 = entity.vertices[(i + 1) % entity.vertices.length]; // Wrap-around for closed shapes
-          
+            
                 // Add the starting vertex
                 points.push({ x: v1.x, y: v1.y });
-          
+            
                 // If there's a bulge, calculate and add arc points
                 if (v1.bulge && v1.bulge !== 0) {
-                  const arcPoints = calculateArcPoints(v1, -v2, v1.bulge);
+                  const arcPoints = calculateArcPoints(v1, v2, v1.bulge);
                   points.push(...arcPoints);
                 }
               }
-          
+            
               // Flatten the points for Konva rendering
-              const flatPoints = points.flatMap((p) => [p?.x, p?.y]);
-          console.log(flatPoints, 'flatPoints',entity.vertices)
               // Render the pool as a closed shape
               return (
                 // <Line
