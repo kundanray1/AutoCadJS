@@ -56,6 +56,7 @@ const App = () => {
   const [selectedLayer, setSelectedLayer] = useState(null);
   const [textures, setTextures] = useState({});
   const [canvasItems, setCanvasItems] = useState([]);
+  const [viewMode, setViewMode] = useState("clipped"); // "clipped" or "full"
 
   const [globalCost, setGlobalCost] = useState(0);
   const [poolDepths, setPoolDepths] = useState({});
@@ -297,7 +298,8 @@ console.log('ondrag end update entitiy position',itemWithId)
       <div
 
 
-        style={{ display: 'flex', flex: 1, backgroundColor: "white" }}>
+        style={{ display: 'flex', flex: 1, flexDirection:'column', backgroundColor: "white" }}>
+
         <Stage
         scaleY={-1}
           width={window.innerWidth - 200}
@@ -349,6 +351,10 @@ console.log('ondrag end update entitiy position',itemWithId)
      
         </Stage>
       </div>
+
+
+
+      
       <div style={{ position: "fixed", right: 0, display: 'flex', width: '15%', flexDirection: 'column', backgroundColor: "#f4f4f4" }}>
 
         <div style={{ width: "200px", padding: "10px", alignItems:'center',backgroundColor: "#f4f4f4" }}>
@@ -356,7 +362,17 @@ console.log('ondrag end update entitiy position',itemWithId)
             Export to DXF
           </button>
          
-         
+  <h3>View Mode</h3>
+  
+  <select
+    value={viewMode}
+    onChange={(e) => setViewMode(e.target.value)}
+    // style={{ width: "100%", padding: "10px", borderRadius: "5px" }}
+  >
+    <option value="clipped">Clipped View</option>
+    <option value="full">Full View</option>
+  </select>
+
           <h3>Layers</h3>
           {dxfData &&
             Object.keys(
@@ -392,6 +408,8 @@ console.log('ondrag end update entitiy position',itemWithId)
                   </option>
                 ))}
                 </select>
+
+
 
               </div>
             ))}
@@ -513,8 +531,8 @@ const DXFLayers = ({ dxfData, handleDragEnd,textures, poolDepths,handlePoolClick
                 <Circle
               
                   key={`${entity.layer}-${Math.random()}`} // Unique key for each entity
-                  x={entity.position.x}
-                  y={entity.position.y}
+                  x={entity.center?.x}
+                  y={entity.center?.y}
                   fillPatternImage={availableTextures[textures[layerName]]|| availableTextures[entity.layerTexture] ||null}
 
                   radius={entity.radius}
@@ -545,8 +563,8 @@ const DXFLayers = ({ dxfData, handleDragEnd,textures, poolDepths,handlePoolClick
                   }}
                 />
                     <Text
-                x={entity.position.x-0}
-                y={entity.position.y}
+                x={entity.center.x-0}
+                y={entity.center.y}
                 text={`Depth: ${poolDepths[entity.id] || 0}m`}
                    fontSize={14}
             fontVariant='bold'
@@ -602,7 +620,7 @@ handlePoolClick(entity.id)} // Assign depth on click
 />
                 </>
               );
-            } else if (entity.type === "POLYLINE") {
+            } else if (entity.type === "POLYLINE"||entity.type === "LINE") {
               const points = [];
 
               for (let i = 0; i < entity.vertices.length; i++) {
