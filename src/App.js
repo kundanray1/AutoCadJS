@@ -332,6 +332,7 @@ console.log('ondrag end update entitiy position',itemWithId)
               handlePoolUpdate={handlePoolUpdate}
               textures={textures}
               poolDepths={poolDepths}
+              viewMode={viewMode}
               handleVerticesUpdate={handleVerticesUpdate}
               setSelectedLayer={setSelectedLayer}
               handlePoolClick={handlePoolClick}
@@ -367,8 +368,14 @@ console.log('ondrag end update entitiy position',itemWithId)
   <select
     value={viewMode}
     onChange={(e) => setViewMode(e.target.value)}
-    // style={{ width: "100%", padding: "10px", borderRadius: "5px" }}
-  >
+    style={{
+      width: "100%",
+      marginTop: "15px",
+      backgroundColor: "white",
+      padding: "15px",
+      borderRadius: "5px",
+      // outline: selectedLayer === layerName ? "5px solid orange" : "none",
+    }}  >
     <option value="clipped">Clipped View</option>
     <option value="full">Full View</option>
   </select>
@@ -420,7 +427,7 @@ console.log('ondrag end update entitiy position',itemWithId)
   );
 };
 
-const DXFLayers = ({ dxfData, handleDragEnd,textures, poolDepths,handlePoolClick,setSelectedLayer,updateEntityPosition,handlePoolUpdate,handleVerticesUpdate }) => {
+const DXFLayers = ({ viewMode,dxfData, handleDragEnd,textures, poolDepths,handlePoolClick,setSelectedLayer,updateEntityPosition,handlePoolUpdate,handleVerticesUpdate }) => {
 
   const calculateArcPoints = (start, end, bulge) => {
     const points = [];
@@ -659,7 +666,7 @@ handlePoolClick(entity.id)} // Assign depth on click
                 // x={entity?.x||0}
                 // y={entity?.y||0}
                 stroke="blue"
-
+                viewMode={viewMode}
                 points={entity.vertices}
                   // tension={0.1}
                   // strokeWidth={1}
