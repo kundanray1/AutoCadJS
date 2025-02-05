@@ -5,9 +5,10 @@ import * as THREE from 'three';
 import {  Colors } from "dxf-writer"; // Import DxfWriter
 import DxfWriter from "dxf-writer";
 import FreeformPool from "./FreeFormPool";
+import { getArcParameters } from "./utils/GeometricUtils";
 
 
-const invertedY = (y) => -y; // Invert Y function
+// const invertedY = (y) => -y; // Invert Y function
 
 
 
@@ -61,6 +62,18 @@ const App = () => {
   const [globalCost, setGlobalCost] = useState(0);
   const [poolDepths, setPoolDepths] = useState({});
 
+  // const updateEntityPosition = (entityId, newPosition) => {
+
+  //   console.log(dxfData,entityId, newPosition,'ondrag end update entitiy position')
+  //   setDxfData((prev) => ({
+  //     ...prev,
+  //     entities: prev.entities.map((entity) =>
+  //       entity.id === entityId ? { ...entity, position: newPosition } : entity
+  //     ),
+  //   }));
+  // };
+
+
   const updateEntityPosition = (entityId, newPosition) => {
 
     console.log(dxfData,entityId, newPosition,'ondrag end update entitiy position')
@@ -72,6 +85,7 @@ const App = () => {
     }));
   };
 
+ 
 
   const handlePoolClick = (poolId) => {
     const newDepth = prompt("Enter depth for this pool (in meters):", poolDepths[poolId] || 0);
@@ -98,6 +112,7 @@ console.log(dxfData,  )
     dxfData.entities.forEach((entity) => {
 
       const layerName = entity.layer || "Default";
+
       if (entity.type === "LINE") {
         writer.addLayer(layerName, 'green', "CONTINUOUS").drawLine(entity.vertices[0].x, entity.vertices[0].y, entity.vertices[1].x, entity.vertices[1].y, { layer: layerName });
       } else if (entity.type === "CIRCLE") {
@@ -112,8 +127,48 @@ console.log(dxfData,  )
           { layer: layerName }
         );
       } else if (entity.type === "POLYLINE") {
-        const vertices = entity.vertices.map((v) => [v?.x, v?.y,v?.z]);
-        writer.addLayer(layerName, 'green', "CONTINUOUS").drawPolyline3d(vertices, { layer: layerName, closed: entity.closed || false });
+        let hasBulges = entity.vertices.some(v => v.bulge && v.bulge !== 0);
+   console.log(hasBulges,'has bulges')
+
+
+
+        if (hasBulges) {
+          entity.vertices.forEach((v, index) => {
+            if (v.bulge && v.bulge !== 0) {
+              const next = entity.vertices[(index + 1) % entity.vertices.length]; // Next point
+              const params = getArcParameters(v, next, v.bulge);
+              console.log(v,params,'vertices and params and bulges')
+              if (params) {
+
+                let startAngle = (params.startAngle * 180) / Math.PI; // Convert radians to degrees
+                let endAngle = (params.endAngle * 180) / Math.PI;
+            
+                // 🔥 Ensure the arc follows the longer path around the circle
+        
+                writer.addLayer(layerName, 'green', "CONTINUOUS").drawArc(
+                  params.center.x,
+                  params.center.y,
+                  params.radius,
+                  startAngle,
+      endAngle,
+                  { layer: layerName }
+                );
+
+
+              }
+            } else if (index < entity.vertices.length - 1) {
+              // Regular line segments
+              const next = entity.vertices[index + 1];
+              writer.drawLine(v.x, v.y, next.x, next.y, { layer: layerName });
+            }
+          });
+     
+        } else {
+          const vertices = entity.vertices.map((v) => [v?.x, v?.y,v?.z]);
+                  writer.addLayer(layerName, 'green', "CONTINUOUS").drawPolyline3d(vertices, { layer: layerName, closed: entity.closed || false });
+
+        }
+        // writer.addLayer(layerName, 'green', "CONTINUOUS").drawPolyline3d(vertices, { layer: layerName, closed: entity.closed || false });
       }
       // Add support for other DXF entity types as needed
     });
@@ -570,8 +625,8 @@ const DXFLayers = ({ viewMode,dxfData, handleDragEnd,textures, poolDepths,handle
                   }}
                 />
                     <Text
-                x={entity.center.x-0}
-                y={entity.center.y}
+                x={entity?.center?.x-0}
+                y={entity?.center?.y}
                 text={`Depth: ${poolDepths[entity.id] || 0}m`}
                    fontSize={14}
             fontVariant='bold'
