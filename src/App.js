@@ -837,12 +837,23 @@ const DXFLayers = ({ viewMode, dxfData, handleDragEnd, textures, poolDepths, han
     acc[layer].push(entity);
     return acc;
   }, {});
+  
+  
+
+  console.log(dxfData,'dxfDataBlovks test')
+  // Process Blocks and Add Their Entities to Grouped Entities
+// Process Blocks Correctly
+
 
   return (
     <Layer>
       {Object.entries(groupedEntities).map(([layerName, entities]) =>
-        renderLayer(layerName, entities)
-      )}
+      <>
+      {renderLayer(layerName, entities)}
+  
+    </>
+ 
+ )}
     </Layer>
   );
 };

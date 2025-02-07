@@ -11,6 +11,7 @@ const FreeformPool = ({
   key,
   points,
   viewMode,
+  isBlock,
   borderColor = 'red',
   borderWidth = 5,
   draggable = true,
@@ -229,7 +230,7 @@ const FreeformPool = ({
       />
 
    
-      {localPoints.map((point, index) => {
+      {!isBlock&&localPoints.map((point, index) => {
         const nextPoint = localPoints[(index + 1) % localPoints.length];
         const distance = calculateDistance(point, nextPoint).toFixed(2);
         const midpoint = {
@@ -252,7 +253,7 @@ const FreeformPool = ({
       })}
 
 
-      {localPoints.map((point, index) => (
+      {!isBlock&&localPoints.map((point, index) => (
         !point.bulge && ( 
           <>
             <Circle
